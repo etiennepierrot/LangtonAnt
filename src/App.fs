@@ -1,74 +1,116 @@
 module App
 
 open Ant
-open Fable.Import
-
+open Fable.Core.JsInterop
 open Fable.React
 open Fable.React.Props
-open Elmish
-open Elmish
 open Elmish
 open Elmish.React
 
 
-let steps = 60
-let square = GenerateSquare steps
-let ant = {
-    Direction = North
-    Coordinate =
-        {
-            X = steps / 2
-            Y = steps / 2
-        }
-    }
+let square = GenerateSquare 0
 
-let initialState = {
-    Square = square
-    Ant = ant
-    IterationNumber = 10000
-}
-type Msg =
-        | Continue of State
-        | Stop 
-    
-let init() = initialState,  Cmd.ofMsg (Continue initialState)
+type State =
+    { Game: Game
+      IsRunning: bool }
 
-let update (msg : Msg) (model: State) = match msg with
-                                        | Continue m -> m, Cmd.ofMsg Stop
-                                        | Stop -> failwithf "end of loop"
-    
+let initialState =
+    { Game =
+          { Square = square
+            Ant = {
+                    Direction = North
+                    Coordinate = {
+                        X = 0
+                        Y = 0
+                      }
+                    }
+            IterationNumber = 0 }
+      IsRunning = false }
 
-let view model (dispatch : Msg -> unit) =
-    let tableRow xs = tr [] [ for x in xs -> td [] [x] ]
-    let (Square square) = model.Square
-    div
-      []     
-      [ div
-          [ Class "calc" ]
-          [ table []
-                [ for row in square ->
-                    tableRow [
-                        for n in row ->
-                            div [  Style [BackgroundColor n; Width "10px"; Height "10px" ] ] [
-                                str ("") ] ]              
-                    ]
-          ]
-        div [
-              Id "Chart1"
-              Ref (fun element ->
-                  // Ref is trigger with null once for stateless element so we need to wait for the second trigger
-                  if not (isNull element) then
-                      // The div has been mounted check if this is the first time
-                      if model.IterationNumber > 0 then model |> NewState |> Continue |> dispatch
-                  )
-        ] []
-       ]
-     
-      
-   
+let NewState(state: State) = { state with Game = Play state.Game }
+
+type Message =
+    | Move of State
+    | Run
+    | Stop
+    | SetIterationNumber of int
+    | SetSize of int
+
+let init() = initialState, Cmd.none
+
+let modifySize size game =
+    { game with
+          Square = GenerateSquare size
+          Ant =
+              { game.Ant with
+                    Coordinate =
+                        { X = size / 2
+                          Y = size / 2 } } }
+let test model size  =  { model with Game = modifySize size model.Game }
+
+let update (msg: Message) (model: State) =
+    match msg with
+    | Move m -> m, Cmd.none
+    | Stop -> model, Cmd.none
+    | SetIterationNumber i -> { model with Game = { model.Game with IterationNumber = i } }, Cmd.none
+    | SetSize i -> { model with Game = modifySize i model.Game }, Cmd.none
+    | Run -> { model with IsRunning = true }, Cmd.none
+
+
+
+let view (model: State) (dispatch: Message -> unit) =
+    let tableRow xs =
+        tr [] [ for x in xs -> td [] [ x ] ]
+
+    let (Square square) = model.Game.Square
+    div []
+        [ div [ Class "calc" ]
+              [ label [] [ str "Iterations" ]
+                input
+                    [ Class "input"
+                      Value model.Game.IterationNumber
+                      OnChange(fun ev ->
+                          ev.target?value
+                          |> int
+                          |> SetIterationNumber
+                          |> dispatch) ]
+                label [] [ str "Size Array" ]
+                input
+                    [ Class "input"
+                      Value square.Length
+                      OnChange(fun ev ->
+                          ev.target?value
+                          |> int
+                          |> SetSize
+                          |> dispatch) ]
+
+                button [ OnClick(fun e -> dispatch Run) ] [ str "Run" ]
+
+                table []
+                    [ for row in square ->
+                        tableRow
+                            [ for n in row ->
+                                div
+                                    [ Style
+                                        [ BackgroundColor n
+                                          Width "10px"
+                                          Height "10px" ] ] [ str ("") ] ] ] ]
+          div
+              [ Id "Chart1"
+                Ref(fun element ->
+                    // Ref is trigger with null once for stateless element so we need to wait for the second trigger
+                    if not (isNull element) then
+                        // The div has been mounted check if this is the first time
+                        if (model.IsRunning && model.Game.IterationNumber > 0) then
+                            model
+                            |> NewState
+                            |> Move
+                            |> dispatch) ] [] ]
+
+
+
 // App
 Program.mkProgram init update view
 |> Program.withReactBatched "elmish-app"
 |> Program.withConsoleTrace
 |> Program.run
-

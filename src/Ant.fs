@@ -1,87 +1,104 @@
 module Ant
 
-type Coordinate = {
-    X : int
-    Y : int
-}
+type Coordinate =
+    { X: int
+      Y: int }
 
-type Direction = North | West | South | East
-type Color = Black | White
-type Ant = {
-    Coordinate : Coordinate
-    Direction : Direction
-}
-type Square = Square of Color[][]
+type Direction =
+    | North
+    | West
+    | South
+    | East
 
-type State =
-    {
-        Square : Square
-        Ant : Ant
-        IterationNumber : int
-    }
+type CellColor =
+    | Black
+    | White
+
+type Ant =
+    { Coordinate: Coordinate
+      Direction: Direction }
+
+type Square =
+    | Square of CellColor [] []
+    //todo amelioration traiter le plateau comme une liste de coord de carré noir
+    //todo et consider les autres commes des blancs et ainsi
+    
+    member this.ColorPosition coordinate =
+        let (Square s) = this
+        s.[coordinate.X].[coordinate.Y]
+
+type Game =
+    { Square: Square
+      Ant: Ant
+      IterationNumber: int }
 
 let GenerateSquare size =
-    let createLine = Array.init size (fun  _ -> White )
-    Array.init size (fun _ -> createLine ) |> Square
-    
-let ColorPosition (coordinate: Coordinate) (Square square) = square.[coordinate.X].[coordinate.Y]
-    
-let SwitchColor (coordinate : Coordinate) (square : Square) : Square =
-    let inverseColor = function
-                      | Black -> White
-                      | White -> Black                     
-    let mapping = function
-                 | c when c = coordinate -> (ColorPosition c square) |> inverseColor
-                 | c -> ColorPosition c square
+    let createLine = Array.init size (fun _ -> White)
+    Array.init size (fun _ -> createLine) |> Square
+
+
+let SwitchColor (coordinate: Coordinate) (square: Square): Square =
+    let mapping =
+        function
+        | c when c = coordinate ->
+            c
+            |> square.ColorPosition
+            |> function
+                | Black -> White
+                | White -> Black
+        | c -> c |> square.ColorPosition
+
     let (Square s) = square
-    
+
     s
-    |> Array.mapi (fun x row -> row |>  Array.mapi(fun y cell -> mapping { X = x; Y = y;}) )
+    |> Array.mapi (fun x row ->
+        row
+        |> Array.mapi (fun y cell ->
+            mapping
+                { X = x
+                  Y = y }))
     |> Square
-    
-
-   
-let Push (ant : Ant) (square : Square) =
-    let Rotate (ant : Ant) (square : Square) : Ant =
-        let RotateLeft (ant : Ant) = match ant with
-                                         | {Coordinate = _ ; Direction = North} -> {ant with Direction = West}
-                                         | {Coordinate = _ ; Direction = West}  -> {ant with Direction = South}
-                                         | {Coordinate = _ ; Direction = South} -> {ant with Direction = East}
-                                         | {Coordinate = _ ; Direction = East}  -> {ant with Direction = North}
-                             
-        let RotateRight (ant : Ant) = match ant with
-                                         | {Coordinate = _ ; Direction = North} -> {ant with Direction = East}
-                                         | {Coordinate = _ ; Direction = East}  -> {ant with Direction = South}
-                                         | {Coordinate = _ ; Direction = South} -> {ant with Direction = West}
-                                         | {Coordinate = _ ; Direction = West}  -> {ant with Direction = North}
-        match ColorPosition ant.Coordinate square with
-        | White -> RotateLeft ant
-        | Black -> RotateRight ant
-        
-    let Move (ant : Ant) = match ant with
-                            | {Coordinate = _; Direction = North} ->
-                                { ant with Coordinate = { ant.Coordinate with Y = ant.Coordinate.Y + 1 } }
-                            | {Coordinate = _; Direction = West} ->
-                                { ant with Coordinate = { ant.Coordinate with X = ant.Coordinate.X - 1 } }
-                            | {Coordinate = _; Direction = South} ->
-                                { ant with Coordinate = { ant.Coordinate with Y = ant.Coordinate.Y - 1 } }
-                            | {Coordinate = _; Direction = East}  ->
-                                { ant with Coordinate = { ant.Coordinate with X = ant.Coordinate.X + 1 } }
-    Rotate ant square |> Move
-
-
-let NewState (state : State) =
-    {
-        IterationNumber = state.IterationNumber - 1
-        Ant = Push state.Ant state.Square
-        Square = SwitchColor state.Ant.Coordinate state.Square
-    }
-    
-let rec PlayRec (state : State) =
-    if (state.IterationNumber = 0)
-        then state
-        else state |> NewState |> PlayRec
 
 
 
-    
+let Push (ant: Ant) (square: Square) =
+    let rotate (ant: Ant) =
+        let rotateLeft =
+            function
+            | North -> West
+            | West -> South
+            | South -> East
+            | East -> North
+
+        let rotateRight =
+            function
+            | North -> East
+            | East -> South
+            | South -> West
+            | West -> North
+
+        ant
+        |> (fun a -> square.ColorPosition a.Coordinate)
+        |> function
+        | White -> rotateLeft
+        | Black -> rotateRight
+        |> (fun rot -> { ant with Direction = rot ant.Direction })
+
+    let inc a = a + 1
+    let dec a = a - 1
+
+    let push =
+        function
+        | { Direction = North } -> { ant with Coordinate = { ant.Coordinate with Y = inc ant.Coordinate.Y } }
+        | { Direction = West } -> { ant with Coordinate = { ant.Coordinate with X = dec ant.Coordinate.X } }
+        | { Direction = South } -> { ant with Coordinate = { ant.Coordinate with Y = dec ant.Coordinate.Y } }
+        | { Direction = East } -> { ant with Coordinate = { ant.Coordinate with X = inc ant.Coordinate.X } }
+
+    ant
+    |> rotate
+    |> push
+
+let Play(state: Game) =
+    { IterationNumber = state.IterationNumber - 1
+      Ant = Push state.Ant state.Square
+      Square = SwitchColor state.Ant.Coordinate state.Square }
