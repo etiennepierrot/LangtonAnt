@@ -1,5 +1,7 @@
 module Ant
 
+open Shortcuts
+
 type Coordinate =
     { X: int
       Y: int }
@@ -18,51 +20,30 @@ type Ant =
     { Coordinate: Coordinate
       Direction: Direction }
 
-type Square =
-    | Square of CellColor [] []
-    //todo amelioration traiter le plateau comme une liste de coord de carré noir
-    //todo et consider les autres commes des blancs et ainsi
-    
+type Board =
+    | Board of Coordinate list
+
     member this.ColorPosition coordinate =
-        let (Square s) = this
-        s.[coordinate.X].[coordinate.Y]
+        let (Board b) = this
+        if (List.contains coordinate b) then Black
+        else White
+
+    member this.SwitchColor coordinate =
+        let (Board b) = this
+        match this.ColorPosition coordinate with
+        | White -> coordinate :: b |> Board
+        | Black -> remove coordinate b |> Board
 
 type Game =
-    { Square: Square
+    { Board: Board
       Ant: Ant
       IterationNumber: int }
 
-let GenerateSquare size =
-    let createLine = Array.init size (fun _ -> White)
-    Array.init size (fun _ -> createLine) |> Square
+let GenerateBoard = Board []
 
-
-let SwitchColor (coordinate: Coordinate) (square: Square): Square =
-    let mapping =
-        function
-        | c when c = coordinate ->
-            c
-            |> square.ColorPosition
-            |> function
-                | Black -> White
-                | White -> Black
-        | c -> c |> square.ColorPosition
-
-    let (Square s) = square
-
-    s
-    |> Array.mapi (fun x row ->
-        row
-        |> Array.mapi (fun y cell ->
-            mapping
-                { X = x
-                  Y = y }))
-    |> Square
-
-
-
-let Push (ant: Ant) (square: Square) =
-    let rotate (ant: Ant) =
+let Push (board: Board) (ant: Ant)  =
+    
+    let rotate (board: Board) (ant: Ant) =
         let rotateLeft =
             function
             | North -> West
@@ -78,27 +59,24 @@ let Push (ant: Ant) (square: Square) =
             | West -> North
 
         ant
-        |> (fun a -> square.ColorPosition a.Coordinate)
+        |> (fun a -> board.ColorPosition a.Coordinate)
         |> function
         | White -> rotateLeft
         | Black -> rotateRight
         |> (fun rot -> { ant with Direction = rot ant.Direction })
-
-    let inc a = a + 1
-    let dec a = a - 1
-
+    
     let push =
         function
-        | { Direction = North } -> { ant with Coordinate = { ant.Coordinate with Y = inc ant.Coordinate.Y } }
-        | { Direction = West } -> { ant with Coordinate = { ant.Coordinate with X = dec ant.Coordinate.X } }
-        | { Direction = South } -> { ant with Coordinate = { ant.Coordinate with Y = dec ant.Coordinate.Y } }
-        | { Direction = East } -> { ant with Coordinate = { ant.Coordinate with X = inc ant.Coordinate.X } }
+        | { Direction = North } as a -> { a with Coordinate = { a.Coordinate with Y = inc a.Coordinate.Y } }
+        | { Direction = West } as a -> { a with Coordinate = { a.Coordinate with X = dec a.Coordinate.X } }
+        | { Direction = South } as a -> { a with Coordinate = { a.Coordinate with Y = dec a.Coordinate.Y } }
+        | { Direction = East }  as a -> { a with Coordinate = { a.Coordinate with X = inc a.Coordinate.X } }
 
     ant
-    |> rotate
+    |> rotate board
     |> push
 
 let Play(state: Game) =
     { IterationNumber = state.IterationNumber - 1
-      Ant = Push state.Ant state.Square
-      Square = SwitchColor state.Ant.Coordinate state.Square }
+      Ant = Push state.Board state.Ant
+      Board = state.Board.SwitchColor state.Ant.Coordinate }

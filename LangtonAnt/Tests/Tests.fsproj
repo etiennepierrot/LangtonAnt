@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>netcoreapp2.2</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Tests.fs" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Expecto" Version="8.13.1" />
+        <PackageReference Include="Expecto.FsCheck" Version="8.13.1" />
+        <PackageReference Include="Expecto.Hopac" Version="8.13.1" />
+        <PackageReference Include="Logary.Adapters.Facade" Version="5.0.0" />
+    </ItemGroup>
+    <ItemGroup>
+      <ProjectReference Include="..\..\src\App.fsproj" />
+    </ItemGroup>
+
+</Project>

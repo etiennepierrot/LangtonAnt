@@ -1,5 +1,6 @@
 module App
 
+open System
 open Ant
 open Fable.Core.JsInterop
 open Fable.React
@@ -8,7 +9,7 @@ open Elmish
 open Elmish.React
 
 
-let square = GenerateSquare 0
+let board = GenerateBoard
 
 type State =
     { Game: Game
@@ -16,7 +17,7 @@ type State =
 
 let initialState =
     { Game =
-          { Square = square
+          { Board = board
             Ant = {
                     Direction = North
                     Coordinate = {
@@ -24,7 +25,8 @@ let initialState =
                         Y = 0
                       }
                     }
-            IterationNumber = 0 }
+            IterationNumber = 100
+          }
       IsRunning = false }
 
 let NewState(state: State) = { state with Game = Play state.Game }
@@ -34,35 +36,35 @@ type Message =
     | Run
     | Stop
     | SetIterationNumber of int
-    | SetSize of int
 
 let init() = initialState, Cmd.none
-
-let modifySize size game =
-    { game with
-          Square = GenerateSquare size
-          Ant =
-              { game.Ant with
-                    Coordinate =
-                        { X = size / 2
-                          Y = size / 2 } } }
-let test model size  =  { model with Game = modifySize size model.Game }
 
 let update (msg: Message) (model: State) =
     match msg with
     | Move m -> m, Cmd.none
     | Stop -> model, Cmd.none
     | SetIterationNumber i -> { model with Game = { model.Game with IterationNumber = i } }, Cmd.none
-    | SetSize i -> { model with Game = modifySize i model.Game }, Cmd.none
     | Run -> { model with IsRunning = true }, Cmd.none
-
-
-
+ 
+let ConvertBoardToArray2D (board : Board)  =
+    let maxabs (a:Coordinate) = Math.Max( Math.Abs(a.X), Math.Abs(a.Y))
+    let (Board b) = board    
+    let extremePosition = b
+                          |> List.map maxabs
+                          |> List.fold (fun a b -> Math.Max(a, b) ) 0
+    let generateSquare size (board : Board) =
+        let transform idx size = idx - (size / 2)
+        let createLine y = Array.init size (fun x -> board.ColorPosition {
+            X = transform x size
+            Y = transform y size
+        })
+        Array.init size createLine
+    generateSquare (extremePosition * 2) board
+    
 let view (model: State) (dispatch: Message -> unit) =
     let tableRow xs =
         tr [] [ for x in xs -> td [] [ x ] ]
 
-    let (Square square) = model.Game.Square
     div []
         [ div [ Class "calc" ]
               [ label [] [ str "Iterations" ]
@@ -74,20 +76,12 @@ let view (model: State) (dispatch: Message -> unit) =
                           |> int
                           |> SetIterationNumber
                           |> dispatch) ]
-                label [] [ str "Size Array" ]
-                input
-                    [ Class "input"
-                      Value square.Length
-                      OnChange(fun ev ->
-                          ev.target?value
-                          |> int
-                          |> SetSize
-                          |> dispatch) ]
+              
 
-                button [ OnClick(fun e -> dispatch Run) ] [ str "Run" ]
+                button [ OnClick(fun _ -> dispatch Run) ] [ str "Run" ]
 
                 table []
-                    [ for row in square ->
+                    [ for row in model.Game.Board |> ConvertBoardToArray2D ->
                         tableRow
                             [ for n in row ->
                                 div
@@ -114,3 +108,7 @@ Program.mkProgram init update view
 |> Program.withReactBatched "elmish-app"
 |> Program.withConsoleTrace
 |> Program.run
+
+
+//let state = initialState |> NewState |> NewState |> NewState
+//ConvertBoardToArray2D state.Game.Board

@@ -1,8 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Shortcuts.fs" />
     <Compile Include="Ant.fs" />
     <Compile Include="App.fs" />
     <None Include="references.fsx" />
@@ -11,5 +13,6 @@
     <PackageReference Include="Fable.Core" Version="3.0.0" />
     <PackageReference Include="Fable.Browser.Dom" Version="1.0.0" />
     <PackageReference Include="Fable.Elmish.React" Version="3.0.1" />
+    
   </ItemGroup>
 </Project>
