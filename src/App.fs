@@ -1,12 +1,14 @@
 module App
 
-open System
 open Ant
 open Fable.Core.JsInterop
 open Fable.React
 open Fable.React.Props
 open Elmish
 open Elmish.React
+open Fulma
+open Fulma.Elmish
+open Shortcuts
 
 
 let board = GenerateBoard
@@ -18,55 +20,43 @@ type State =
 let initialState =
     { Game =
           { Board = board
-            Ant = {
-                    Direction = North
-                    Coordinate = {
-                        X = 0
-                        Y = 0
-                      }
-                    }
-            IterationNumber = 100
-          }
+            Ant =
+                { Direction = North
+                  Coordinate =
+                      { X = 0
+                        Y = 0 } }
+            IterationNumber = 100 }
       IsRunning = false }
 
 let NewState(state: State) = { state with Game = Play state.Game }
-
+let RunSimulation (state : State) (iteration : int) =
+    let game = PlayRec state.Game iteration
+    { state with Game = game }
+    
 type Message =
     | Move of State
     | Run
     | Stop
     | SetIterationNumber of int
+    | RunWithoutAnimation
 
 let init() = initialState, Cmd.none
 
 let update (msg: Message) (model: State) =
     match msg with
     | Move m -> m, Cmd.none
-    | Stop -> model, Cmd.none
+    | Stop -> { model with IsRunning = false }, Cmd.none
     | SetIterationNumber i -> { model with Game = { model.Game with IterationNumber = i } }, Cmd.none
     | Run -> { model with IsRunning = true }, Cmd.none
- 
-let ConvertBoardToArray2D (board : Board)  =
-    let maxabs (a:Coordinate) = Math.Max( Math.Abs(a.X), Math.Abs(a.Y))
-    let (Board b) = board    
-    let extremePosition = b
-                          |> List.map maxabs
-                          |> List.fold (fun a b -> Math.Max(a, b) ) 0
-    let generateSquare size (board : Board) =
-        let transform idx size = idx - (size / 2)
-        let createLine y = Array.init size (fun x -> board.ColorPosition {
-            X = transform x size
-            Y = transform y size
-        })
-        Array.init size createLine
-    generateSquare (extremePosition * 2) board
-    
+    | RunWithoutAnimation -> (RunSimulation model model.Game.IterationNumber ), Cmd.none
+
+
 let view (model: State) (dispatch: Message -> unit) =
     let tableRow xs =
         tr [] [ for x in xs -> td [] [ x ] ]
 
-    div []
-        [ div [ Class "calc" ]
+    Container.container [Container.IsWideScreen]
+        [ div [ ClassName "block" ]
               [ label [] [ str "Iterations" ]
                 input
                     [ Class "input"
@@ -76,12 +66,13 @@ let view (model: State) (dispatch: Message -> unit) =
                           |> int
                           |> SetIterationNumber
                           |> dispatch) ]
-              
 
-                button [ OnClick(fun _ -> dispatch Run) ] [ str "Run" ]
-
+                Button.button [Button.Color IsSuccess; Button.Props[ OnClick(fun _ -> dispatch Run) ]] [str "Run"]
+                Button.button [Button.Color IsSuccess; Button.Props[ OnClick(fun _ -> dispatch RunWithoutAnimation) ]] [str "Run without animation"]
+                Button.button [Button.Color IsDanger; Button.Props[ OnClick(fun _ -> dispatch Stop) ]] [str "Stop"]
+                
                 table []
-                    [ for row in model.Game.Board |> ConvertBoardToArray2D ->
+                    [ for row in model.Game.Board.ConvertBoardToArray2D ->
                         tableRow
                             [ for n in row ->
                                 div

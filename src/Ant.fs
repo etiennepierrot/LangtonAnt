@@ -1,6 +1,7 @@
 module Ant
 
 open Shortcuts
+open System
 
 type Coordinate =
     { X: int
@@ -33,6 +34,21 @@ type Board =
         match this.ColorPosition coordinate with
         | White -> coordinate :: b |> Board
         | Black -> remove coordinate b |> Board
+        
+    member this.ConvertBoardToArray2D =
+        let maxabs (a:Coordinate) = Math.Max( Math.Abs(a.X), Math.Abs(a.Y))
+        let (Board b) = this    
+        let extremePosition = b
+                              |> List.map maxabs
+                              |> List.fold (fun a b -> Math.Max(a, b) ) 0
+        let generateSquare size (board : Board) =
+            let transform idx size = idx - (size / 2)
+            let createLine y = Array.init size (fun x -> board.ColorPosition {
+                X = transform x size
+                Y = transform y size
+            })
+            Array.init size createLine
+        generateSquare (extremePosition * 2) this
 
 type Game =
     { Board: Board
@@ -76,7 +92,15 @@ let Push (board: Board) (ant: Ant)  =
     |> rotate board
     |> push
 
-let Play(state: Game) =
-    { IterationNumber = state.IterationNumber - 1
-      Ant = Push state.Board state.Ant
-      Board = state.Board.SwitchColor state.Ant.Coordinate }
+let Play(game: Game) =
+    { IterationNumber = game.IterationNumber - 1
+      Ant = Push game.Board game.Ant
+      Board = game.Board.SwitchColor game.Ant.Coordinate }
+    
+let rec PlayRec (game : Game ) (iteration : int) =
+    if(iteration = 0 )
+    then
+        game
+    else
+        PlayRec (Play game) (dec iteration)
+    
