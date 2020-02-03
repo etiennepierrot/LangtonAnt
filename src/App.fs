@@ -38,6 +38,7 @@ type Message =
     | Stop
     | SetIterationNumber of int
     | RunWithoutAnimation
+    
 
 let init() = initialState, Cmd.none
 
@@ -53,10 +54,19 @@ let update (msg: Message) (model: State) =
 let view (model: State) (dispatch: Message -> unit) =
     
     let game = model.Game
-    let array2D = game.Board.ConvertBoardToArray2D
-    let sizeArray =  (array2D.Length * 10).ToString() + "px"
+    let grid = GenerateGrid game
+    let sizeArrayY = (grid.Length * 10).ToString() + "px"
+    let sizeArrayX = match grid with
+                      | [||] -> "Opx"
+                      | _ as a -> ( (a |> Array.head |> Array.length) * 10 ).ToString() + "px"
+
     let tableRow xs = tr [] [ for x in xs -> td [ Class "is-paddingless" ][x] ]
-    
+    let color (colorDisplay : ColorDisplay) : string =
+        match colorDisplay with
+        | Red -> "Red"
+        | ColorFloor color -> match color with
+                              | White -> "White"
+                              | Black -> "Black"
     div []
         [
           Content.content []
@@ -89,6 +99,7 @@ let view (model: State) (dispatch: Message -> unit) =
                      
                       Button.button
                           [
+                            Button.Color IsSuccess
                             Button.OnClick (fun _ -> dispatch Run)
                           ] [str "Run"]
                       Button.button
@@ -105,13 +116,13 @@ let view (model: State) (dispatch: Message -> unit) =
                 table[
                     Class "table"    
                     Style [
-                            Width sizeArray
-                            Height sizeArray]]
-                    [tbody [] [ for row in game.Board.ConvertBoardToArray2D ->
-                                tableRow [ for color in row ->
+                            Width sizeArrayX
+                            Height sizeArrayY]]
+                    [tbody [] [ for row in GenerateGrid <| game ->
+                                tableRow [ for c in row ->
                                             div [Style
                                                     [
-                                                      BackgroundColor color
+                                                      BackgroundColor (color <| c)
                                                       Width "10px"
                                                       Height "10px"
                                                       ]] [str ""] ] ]

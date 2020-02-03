@@ -13,13 +13,23 @@ type Direction =
     | South
     | East
 
-type CellColor =
+type ColorFloor =
     | Black
     | White
+
+type ColorDisplay = ColorFloor of ColorFloor | Red
 
 type Ant =
     { Coordinate: Coordinate
       Direction: Direction }
+
+type ExtremePosition = {
+            MinX : int
+            MinY : int
+            MaxY : int
+            MaxX : int
+        }
+
 
 type Board =
     | Board of Coordinate list
@@ -35,53 +45,63 @@ type Board =
         | White -> coordinate :: b |> Board
         | Black -> remove coordinate b |> Board
         
-    member this.ConvertBoardToArray2D =
-        let maxabs (a:Coordinate) = Math.Max( Math.Abs(a.X), Math.Abs(a.Y))
-        let (Board b) = this    
-        let extremePosition = b
-                              |> List.map maxabs
-                              |> List.fold (fun a b -> Math.Max(a, b) ) 0
-        let generateSquare size (board : Board) =
-            let transform idx size = idx - (size / 2)
-            let createLine y = Array.init size (fun x -> board.ColorPosition {
-                X = transform x size
-                Y = transform y size
-            })
-            Array.init size createLine
-        generateSquare (extremePosition * 2) this
-
 type Game =
     { Board: Board
       Ant: Ant
       IterationNumber: int }
+
+
+       
+let GenerateGrid (game : Game) = 
+        let extremePosition (b : Coordinate list) = {
+                                            MinX = b |> List.fold (fun acc c -> Math.Min(acc, c.X)) 0
+                                            MaxX = b |> List.fold (fun acc c -> Math.Max(acc, c.X)) 0
+                                            MinY = b |> List.fold (fun acc c -> Math.Min(acc, c.Y)) 0
+                                            MaxY = b |> List.fold (fun acc c -> Math.Max(acc, c.Y)) 0
+                                        }
+        let generateSquare (extremePosition : ExtremePosition) (g : Game) =
+            let transform idx size = idx - (size / 2)
+            let sizeX = extremePosition.MaxX - extremePosition.MinX
+            let sizeY = extremePosition.MaxY - extremePosition.MinY
+            
+            let colorDisplay game coord  = 
+                match coord with
+                | c when c = game.Ant.Coordinate -> Red
+                | _  -> game.Board.ColorPosition coord |> ColorDisplay.ColorFloor
+
+            let createLine y = Array.init sizeX (fun x -> colorDisplay g {
+                X = transform x sizeX
+                Y = transform y sizeY
+            })
+            Array.init sizeY createLine
+        let (Board b) = game.Board
+        let minmaxGrid = extremePosition (game.Ant.Coordinate :: b)
+        generateSquare minmaxGrid game
+
+
 
 let GenerateBoard = Board []
 
 let Push (board: Board) (ant: Ant)  =
     
     let rotate (board: Board) (ant: Ant) =
-        let rotateLeft =
-            function
-            | North -> West
-            | West -> South
-            | South -> East
-            | East -> North
-
-        let rotateRight =
-            function
-            | North -> East
-            | East -> South
-            | South -> West
-            | West -> North
-
-        ant
-        |> (fun a -> board.ColorPosition a.Coordinate)
+        let turn ant rot = { ant with Direction = rot ant.Direction }
+        ant.Coordinate
+        |> board.ColorPosition
         |> function
-        | White -> rotateLeft
-        | Black -> rotateRight
-        |> (fun rot -> { ant with Direction = rot ant.Direction })
+            | White -> function
+                        | North -> West
+                        | West -> South
+                        | South -> East
+                        | East -> North
+            | Black -> function
+                        | North -> East
+                        | East -> South
+                        | South -> West
+                        | West -> North
+        |> turn ant
     
-    let push =
+    let moveForward =
         function
         | { Direction = North } as a -> { a with Coordinate = { a.Coordinate with Y = inc a.Coordinate.Y } }
         | { Direction = West } as a -> { a with Coordinate = { a.Coordinate with X = dec a.Coordinate.X } }
@@ -90,7 +110,7 @@ let Push (board: Board) (ant: Ant)  =
 
     ant
     |> rotate board
-    |> push
+    |> moveForward
 
 let Play(game: Game) =
     { IterationNumber = game.IterationNumber - 1
